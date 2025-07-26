@@ -1,14 +1,12 @@
-FROM python:3.10-slim
+# استخدم صورة ألباين خفيفة
+FROM alpine:latest
 
-RUN apt-get update && apt-get install -y curl unzip git
+# تثبيت curl فقط لأنه مطلوب للتحميل
+RUN apk add --no-cache curl
 
-# تثبيت Dalfox
+# تحميل ملف dalfox التنفيذي ووضعه في /usr/local/bin مع صلاحية التنفيذ
 RUN curl -L https://github.com/hahwul/dalfox/releases/download/v2.12.0/dalfox-linux-amd64 -o /usr/local/bin/dalfox && \
     chmod +x /usr/local/bin/dalfox
 
-# نسخ السكربت وتشغيله
-COPY . /app
-WORKDIR /app
-RUN pip install -r requirements.txt
-
-CMD ["python", "app.py"]
+# يمكنك هنا تحديد نقطة البداية (اختياري)
+ENTRYPOINT ["/usr/local/bin/dalfox"]
