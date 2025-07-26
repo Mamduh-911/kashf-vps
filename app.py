@@ -3,35 +3,42 @@ import subprocess
 
 app = Flask(__name__)
 
-@app.route('/scan')
-def scan():
-    url = request.args.get('url')
-    if not url:
-        return jsonify({"error": "Missing 'url' param"}), 400
-    results = []
+@app.route('/')
+def index():
+    return "🚀 Kashf-VPS API is running!"
 
-    # Dalfox
+@app.route('/scan/xss', methods=['POST'])
+def scan_xss():
+    target = request.json.get('url')
+    if not target:
+        return jsonify({"error": "URL is required"}), 400
     try:
-        out = subprocess.check_output(["dalfox", "url", url, "--silent", "--json"], stderr=subprocess.STDOUT, timeout=60)
-        results.append({"tool": "dalfox", "result": out.decode()})
-    except Exception as e:
-        results.append({"tool": "dalfox", "error": str(e)})
+        result = subprocess.check_output(['dalfox', 'url', target], stderr=subprocess.STDOUT)
+        return jsonify({"tool": "dalfox", "output": result.decode()}), 200
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": e.output.decode()}), 500
 
-    # SQLMap
+@app.route('/scan/sql', methods=['POST'])
+def scan_sql():
+    target = request.json.get('url')
+    if not target:
+        return jsonify({"error": "URL is required"}), 400
     try:
-        out = subprocess.check_output(["python3", "/opt/sqlmap/sqlmap.py", "-u", url, "--batch", "--output-dir=/tmp"], stderr=subprocess.STDOUT, timeout=120)
-        results.append({"tool": "sqlmap", "result": out.decode()[:1000]})
-    except Exception as e:
-        results.append({"tool": "sqlmap", "error": str(e)})
+        result = subprocess.check_output(['sqlmap', '-u', target, '--batch', '--level=1'], stderr=subprocess.STDOUT)
+        return jsonify({"tool": "sqlmap", "output": result.decode(errors='ignore')}), 200
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": e.output.decode(errors='ignore')}), 500
 
-    # Nuclei
+@app.route('/scan/lfi', methods=['POST'])
+def scan_lfi():
+    target = request.json.get('url')
+    if not target:
+        return jsonify({"error": "URL is required"}), 400
     try:
-        out = subprocess.check_output(["nuclei", "-u", url, "-json"], stderr=subprocess.STDOUT, timeout=60)
-        results.append({"tool": "nuclei", "result": out.decode()})
-    except Exception as e:
-        results.append({"tool": "nuclei", "error": str(e)})
-
-    return jsonify({"target": url, "scans": results})
+        result = subprocess.check_output(['nuclei', '-u', target, '-t', 'vulnerabilities/'], stderr=subprocess.STDOUT)
+        return jsonify({"tool": "nuclei", "output": result.decode(errors='ignore')}), 200
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": e.output.decode(errors='ignore')}), 500
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8000)
+    app.run(host='0.0.0.0', port=8000)
