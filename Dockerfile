@@ -7,10 +7,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # تثبيت dalfox
-RUN curl -L https://github.com/hahwul/dalfox/releases/download/v2.12.0/dalfox-linux-amd64.zip -o /tmp/dalfox.zip && \
+# تثبيت dalfox تلقائياً من GitHub
+RUN curl -s https://api.github.com/repos/hahwul/dalfox/releases/latest \
+    | grep "browser_download_url.*linux-amd64.zip" \
+    | cut -d '"' -f 4 \
+    | wget -i - -O /tmp/dalfox.zip && \
     unzip /tmp/dalfox.zip -d /usr/local/bin && \
-    mv /usr/local/bin/dalfox-linux-amd64 /usr/local/bin/dalfox && \
-    chmod +x /usr/local/bin/dalfox
+    chmod +x /usr/local/bin/dalfox*
 
 # تثبيت nuclei
 RUN curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest | \
