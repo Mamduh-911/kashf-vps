@@ -1,9 +1,8 @@
-FROM golang:1.20-alpine
+FROM alpine:latest
 
-RUN apk add --no-cache git curl
+RUN apk add --no-cache curl
 
-RUN go install github.com/hahwul/dalfox/v2@latest
+RUN curl -L https://github.com/hahwul/dalfox/releases/download/v2.12.0/dalfox-linux-amd64 -o /usr/local/bin/dalfox && \
+    chmod +x /usr/local/bin/dalfox
 
-ENV PATH="/go/bin:${PATH}"
-
-ENTRYPOINT ["dalfox"]
+ENTRYPOINT ["/usr/local/bin/dalfox"]
