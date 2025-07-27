@@ -1,9 +1,13 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import subprocess
 import uuid
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates', static_folder='static')
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 @app.route('/scan', methods=['POST'])
 def scan():
@@ -17,7 +21,7 @@ def scan():
 
     results = []
 
-    # Run sqlmap
+    # SQLMAP
     try:
         sqlmap_cmd = [
             "sqlmap",
@@ -28,19 +32,19 @@ def scan():
         subprocess.run(sqlmap_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
         results.append({
             "tool": "SQLMap",
-            "status": "✅ فحص SQL Injection تم",
-            "severity": "High",
-            "description": "فحص تلقائي لثغرات SQLi باستخدام sqlmap"
+            "status": "✅ تم الفحص باستخدام SQL Injection",
+            "severity": "عالية",
+            "description": "تم تنفيذ فحص SQLi باستخدام أداة sqlmap."
         })
     except Exception as e:
         results.append({
             "tool": "SQLMap",
             "status": f"❌ خطأ: {str(e)}",
-            "severity": "Low",
-            "description": "لم يتم الفحص بـ sqlmap"
+            "severity": "منخفضة",
+            "description": "حدث خطأ أثناء تنفيذ sqlmap."
         })
 
-    # Run nuclei
+    # NUCLEI
     try:
         nuclei_cmd = [
             "nuclei",
@@ -55,22 +59,22 @@ def scan():
             results.append({
                 "tool": "Nuclei",
                 "status": "✅ تم العثور على ثغرات",
-                "severity": "Medium",
+                "severity": "متوسطة",
                 "description": nuclei_output
             })
         else:
             results.append({
                 "tool": "Nuclei",
-                "status": "✅ تم الفحص، لا توجد ثغرات",
-                "severity": "Info",
-                "description": "لم يتم اكتشاف أي ثغرات معروفة"
+                "status": "✅ لا توجد ثغرات معروفة",
+                "severity": "معلوماتية",
+                "description": "لم يتم العثور على نتائج من nuclei."
             })
     except Exception as e:
         results.append({
             "tool": "Nuclei",
             "status": f"❌ خطأ: {str(e)}",
-            "severity": "Low",
-            "description": "لم يتم الفحص بـ nuclei"
+            "severity": "منخفضة",
+            "description": "حدث خطأ أثناء تنفيذ nuclei."
         })
 
     return jsonify({"results": results})
