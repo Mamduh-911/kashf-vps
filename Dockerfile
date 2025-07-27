@@ -1,18 +1,29 @@
-# استخدام صورة أوبنتو حديثة
-FROM ubuntu:22.04
+FROM python:3.11-slim
 
-# تثبيت الأدوات الضرورية
-RUN apt-get update && apt-get install -y curl unzip
+WORKDIR /app
 
-# تحميل وتثبيت dalfox
-RUN curl -L https://github.com/hahwul/dalfox/releases/download/v2.9.0/dalfox_2.9.0_linux_amd64.tar.gz -o /tmp/dalfox.tar.gz \
-    && tar -xzf /tmp/dalfox.tar.gz -C /usr/local/bin \
-    && chmod +x /usr/local/bin/dalfox \
-    && rm /tmp/dalfox.tar.gz
+COPY . .
 
-# تحقق من تثبيت dalfox
-RUN dalfox --version
+RUN pip install -r requirements.txt
 
-# تعيين الأمر الافتراضي
-ENTRYPOINT ["dalfox"]
-CMD ["--help"]
+# تثبيت الأدوات الخارجية
+RUN apt-get update && apt-get install -y curl unzip git default-jdk build-essential
+
+# Dalfox
+RUN curl -L https://github.com/hahwul/dalfox/releases/download/v2.12.0/dalfox-linux-amd64.zip -o /tmp/dalfox.zip \
+    && unzip /tmp/dalfox.zip -d /usr/local/bin \
+    && chmod +x /usr/local/bin/dalfox
+
+# nuclei
+RUN curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest \
+    | grep "browser_download_url.*linux_amd64.zip" \
+    | cut -d '"' -f 4 \
+    | wget -qi - -O nuclei.zip \
+    && unzip nuclei.zip -d /usr/local/bin \
+    && chmod +x /usr/local/bin/nuclei
+
+# sqlmap
+RUN git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap
+ENV PATH="/opt/sqlmap:$PATH"
+
+CMD ["python", "app.py"]
