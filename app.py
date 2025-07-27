@@ -1,44 +1,76 @@
 from flask import Flask, request, jsonify
 import subprocess
+import uuid
+import os
 
 app = Flask(__name__)
 
-@app.route('/')
-def index():
-    return "🚀 Kashf-VPS API is running!"
+@app.route('/scan', methods=['POST'])
+def scan():
+    data = request.get_json()
+    target_url = data.get('url')
+    if not target_url:
+        return jsonify({'error': 'Missing URL'}), 400
 
-@app.route('/scan/xss', methods=['POST'])
-def scan_xss():
-    target = request.json.get('url')
-    if not target:
-        return jsonify({"error": "URL is required"}), 400
+    scan_id = str(uuid.uuid4())
+    os.makedirs(f"scans/{scan_id}", exist_ok=True)
+
+    results = []
+
+    # Run sqlmap
     try:
-        result = subprocess.check_output(['dalfox', 'url', target], stderr=subprocess.STDOUT)
-        return jsonify({"tool": "dalfox", "output": result.decode()}), 200
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": e.output.decode()}), 500
+        sqlmap_cmd = [
+            "sqlmap",
+            "-u", target_url,
+            "--batch",
+            "--output-dir", f"scans/{scan_id}/sqlmap"
+        ]
+        subprocess.run(sqlmap_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+        results.append({
+            "tool": "SQLMap",
+            "status": "✅ فحص SQL Injection تم",
+            "severity": "High",
+            "description": "فحص تلقائي لثغرات SQLi باستخدام sqlmap"
+        })
+    except Exception as e:
+        results.append({
+            "tool": "SQLMap",
+            "status": f"❌ خطأ: {str(e)}",
+            "severity": "Low",
+            "description": "لم يتم الفحص بـ sqlmap"
+        })
 
-@app.route('/scan/sql', methods=['POST'])
-def scan_sql():
-    target = request.json.get('url')
-    if not target:
-        return jsonify({"error": "URL is required"}), 400
+    # Run nuclei
     try:
-        result = subprocess.check_output(['sqlmap', '-u', target, '--batch', '--level=1'], stderr=subprocess.STDOUT)
-        return jsonify({"tool": "sqlmap", "output": result.decode(errors='ignore')}), 200
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": e.output.decode(errors='ignore')}), 500
+        nuclei_cmd = [
+            "nuclei",
+            "-u", target_url,
+            "-o", f"scans/{scan_id}/nuclei.txt"
+        ]
+        subprocess.run(nuclei_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        with open(f"scans/{scan_id}/nuclei.txt", "r") as f:
+            nuclei_output = f.read()
 
-@app.route('/scan/lfi', methods=['POST'])
-def scan_lfi():
-    target = request.json.get('url')
-    if not target:
-        return jsonify({"error": "URL is required"}), 400
-    try:
-        result = subprocess.check_output(['nuclei', '-u', target, '-t', 'vulnerabilities/'], stderr=subprocess.STDOUT)
-        return jsonify({"tool": "nuclei", "output": result.decode(errors='ignore')}), 200
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": e.output.decode(errors='ignore')}), 500
+        if nuclei_output.strip():
+            results.append({
+                "tool": "Nuclei",
+                "status": "✅ تم العثور على ثغرات",
+                "severity": "Medium",
+                "description": nuclei_output
+            })
+        else:
+            results.append({
+                "tool": "Nuclei",
+                "status": "✅ تم الفحص، لا توجد ثغرات",
+                "severity": "Info",
+                "description": "لم يتم اكتشاف أي ثغرات معروفة"
+            })
+    except Exception as e:
+        results.append({
+            "tool": "Nuclei",
+            "status": f"❌ خطأ: {str(e)}",
+            "severity": "Low",
+            "description": "لم يتم الفحص بـ nuclei"
+        })
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+    return jsonify({"results": results})
